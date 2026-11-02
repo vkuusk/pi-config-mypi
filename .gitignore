@@ -1,0 +1,21 @@
+.idea/
+.DS_Store
+temp/
+
+
+# Ignore everything pi generates, then allow only reviewed config files.
+# Use .pi-agent/* rather than .pi-agent/ so the exceptions below can apply.
+.pi-agent/*
+!.pi-agent/settings.json
+!.pi-agent/*.tmpl
+
+# Local values and files rendered by ./setup
+.mypi.env
+
+# Credentials
+.gh-token
+.env
+.env.*
+
+# macOS
+.DS_Store

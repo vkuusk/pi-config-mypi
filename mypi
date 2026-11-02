@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Start pi in the current directory, using the config dir next to this script,
+# isolated from ~/.pi/agent. Works through a symlink, e.g. in ~/.local/bin.
+# Arguments are passed through to pi, e.g. mypi -c
+# Other pi subcommands work too, e.g. mypi install npm:pi-subagents
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+
+export PI_CODING_AGENT_DIR="$SCRIPT_DIR/.pi-agent"
+mkdir -p "$PI_CODING_AGENT_DIR"
+chmod 700 "$PI_CODING_AGENT_DIR"
+
+if [[ ! -f "$PI_CODING_AGENT_DIR/models.json" || ! -f "$PI_CODING_AGENT_DIR/mcp.json" ]]; then
+  echo "mypi: config not rendered yet, run $SCRIPT_DIR/setup" >&2
+  exit 1
+fi
+
+exec pi "$@"

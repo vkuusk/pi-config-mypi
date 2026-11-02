@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Ask for local values, save them to .mypi.env, and render .pi-agent/*.tmpl.
+# Safe to re-run: saved answers become the defaults.
+set -euo pipefail
+shopt -u patsub_replacement 2>/dev/null || true
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$SCRIPT_DIR/.mypi.env"
+AGENT_DIR="$SCRIPT_DIR/.pi-agent"
+
+OLLAMA_URL="http://localhost:11434"
+MCP_SERVERS_DIR="~/tools"
+
+if [[ -f "$ENV_FILE" ]]; then
+  while IFS='=' read -r key value; do
+    case "$key" in
+      OLLAMA_URL) OLLAMA_URL="$value" ;;
+      MCP_SERVERS_DIR) MCP_SERVERS_DIR="$value" ;;
+    esac
+  done < "$ENV_FILE"
+fi
+
+answer=""
+read -r -p "Ollama API URL [$OLLAMA_URL]: " answer || true
+OLLAMA_URL="${answer:-$OLLAMA_URL}"
+OLLAMA_URL="${OLLAMA_URL%/}"
+OLLAMA_URL="${OLLAMA_URL%/v1}"
+
+answer=""
+read -r -p "Base directory for stdio MCP servers [$MCP_SERVERS_DIR]: " answer || true
+MCP_SERVERS_DIR="${answer:-$MCP_SERVERS_DIR}"
+MCP_SERVERS_DIR="${MCP_SERVERS_DIR%/}"
+
+url_pattern='^https?://[^[:space:]"\\]+$'
+if [[ ! "$OLLAMA_URL" =~ $url_pattern ]]; then
+  echo "setup: invalid Ollama URL: $OLLAMA_URL" >&2
+  exit 1
+fi
+if [[ -z "$MCP_SERVERS_DIR" || "$MCP_SERVERS_DIR" == *[\"\\]* ]]; then
+  echo "setup: invalid directory: $MCP_SERVERS_DIR" >&2
+  exit 1
+fi
+
+for template in "$AGENT_DIR"/*.tmpl; do
+  target="${template%.tmpl}"
+  content="$(<"$template")"
+  placeholder='{{OLLAMA_URL}}'
+  content=${content//"$placeholder"/$OLLAMA_URL}
+  placeholder='{{MCP_SERVERS_DIR}}'
+  content=${content//"$placeholder"/$MCP_SERVERS_DIR}
+  if [[ "$content" == *'{{'* ]]; then
+    echo "setup: unknown placeholder in $template" >&2
+    exit 1
+  fi
+  printf '%s\n' "$content" > "$target.tmp"
+  mv "$target.tmp" "$target"
+  echo "rendered ${target#"$SCRIPT_DIR"/}"
+done
+
+printf 'OLLAMA_URL=%s\nMCP_SERVERS_DIR=%s\n' "$OLLAMA_URL" "$MCP_SERVERS_DIR" > "$ENV_FILE"
+echo "saved ${ENV_FILE#"$SCRIPT_DIR"/}"
